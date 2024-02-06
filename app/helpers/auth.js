@@ -48,6 +48,7 @@ const verifyToken = async (req, res) => {
 };
 
 const verifyRefreshToken = async (req, res) => {
+  console.log(req.body);
   try {
     const decoded = jwt.verify(
       req.body.refresh_token,
@@ -59,10 +60,9 @@ const verifyRefreshToken = async (req, res) => {
       expire_time: Date.now() + expiresIn,
     });
   } catch (error) {
-    return res.send(
-      "token",
-      "Invalid refresh token or a refresh token is expired"
-    );
+    return res
+      .code(401)
+      .send({ message: "Invalid refresh token or a refresh token is expired" });
   }
 };
 

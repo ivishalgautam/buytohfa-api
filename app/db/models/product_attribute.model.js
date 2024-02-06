@@ -2,11 +2,11 @@
 import constants from "../../lib/constants/index.js";
 import sequelizeFwk from "sequelize";
 
-let CategoryModel = null;
+let ProductAttributeModel = null;
 
 const init = async (sequelize) => {
-  CategoryModel = sequelize.define(
-    constants.models.CATEGORY_TABLE,
+  ProductAttributeModel = sequelize.define(
+    constants.models.PRODUCT_ATTRIBUTE_TABLE,
     {
       id: {
         primaryKey: true,
@@ -22,6 +22,7 @@ const init = async (sequelize) => {
       slug: {
         type: sequelizeFwk.DataTypes.STRING,
         allowNull: false,
+        unique: true,
       },
     },
     {
@@ -30,24 +31,43 @@ const init = async (sequelize) => {
     }
   );
 
-  await CategoryModel.sync({ alter: true });
+  await ProductAttributeModel.sync({ alter: true });
 };
 
 const create = async (req) => {
-  return await CategoryModel.create({
+  return await ProductAttributeModel.create({
     name: req.body.name,
     slug: req.body.slug,
   });
 };
 
 const get = async (req) => {
-  return await CategoryModel.findAll({
-    order: [["created_at", "DESC"]],
+  let query = `
+            SELECT
+                pa.id,
+                pa.name,
+                pa.slug,
+                jsonb_agg(jsonb_build_object(
+                  'id', pat.id,
+                  'name', pat.name,
+                  'slug', pat.slug
+                )) AS terms
+              FROM 
+            product_attributes pa
+            LEFT JOIN product_attribute_terms pat ON pat.attribute_id = pa.id
+            GROUP BY 
+                pa.id,
+                pa.name,
+                pa.slug;
+  `;
+
+  return await ProductAttributeModel.sequelize.query(query, {
+    type: sequelizeFwk.QueryTypes.SELECT,
   });
 };
 
 const update = async (req, id) => {
-  const [rowCount, rows] = await CategoryModel.update(
+  const [rowCount, rows] = await ProductAttributeModel.update(
     {
       name: req.body.name,
       slug: req.body.slug,
@@ -65,7 +85,7 @@ const update = async (req, id) => {
 };
 
 const getById = async (req, id) => {
-  return await CategoryModel.findOne({
+  return await ProductAttributeModel.findOne({
     where: {
       id: req.params.id || id,
     },
@@ -73,7 +93,7 @@ const getById = async (req, id) => {
 };
 
 const getBySlug = async (req, slug) => {
-  return await CategoryModel.findOne({
+  return await ProductAttributeModel.findOne({
     where: {
       slug: req.params.slug || slug,
     },
@@ -82,7 +102,7 @@ const getBySlug = async (req, slug) => {
 };
 
 const deleteById = async (req, id) => {
-  return await CategoryModel.destroy({
+  return await ProductAttributeModel.destroy({
     where: { id: req.params.id || id },
   });
 };

@@ -1,6 +1,6 @@
 "use strict";
 import constants from "../../lib/constants/index.js";
-import sequelizeFwk from "sequelize";
+import sequelizeFwk, { where } from "sequelize";
 
 let ProductModel = null;
 
@@ -19,13 +19,29 @@ const init = async (sequelize) => {
         type: sequelizeFwk.DataTypes.STRING,
         allowNull: false,
       },
+      variant_title: {
+        type: sequelizeFwk.DataTypes.STRING,
+        allowNull: true,
+      },
       slug: {
         type: sequelizeFwk.DataTypes.TEXT,
-        allowNull: false,
+        allowNull: true,
         unique: true,
       },
       description: {
         type: sequelizeFwk.DataTypes.TEXT,
+        allowNull: false,
+      },
+      pictures: {
+        type: sequelizeFwk.DataTypes.ARRAY(sequelizeFwk.DataTypes.TEXT),
+        default: [],
+      },
+      tags: {
+        type: sequelizeFwk.DataTypes.ARRAY(sequelizeFwk.DataTypes.STRING),
+        default: [],
+      },
+      quantity: {
+        type: sequelizeFwk.DataTypes.INTEGER,
         allowNull: false,
       },
       type: {
@@ -35,10 +51,26 @@ const init = async (sequelize) => {
       },
       moq: {
         type: sequelizeFwk.DataTypes.INTEGER,
-        allowNull: true,
+        defaultValue: 0,
       },
       price: {
         type: sequelizeFwk.DataTypes.DECIMAL(10, 2),
+        allowNull: false,
+      },
+      discounted_price: {
+        type: sequelizeFwk.DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+      },
+      weight: {
+        type: sequelizeFwk.DataTypes.STRING,
+        allowNull: false,
+      },
+      gst: {
+        type: sequelizeFwk.DataTypes.STRING,
+        allowNull: false,
+      },
+      sku_id: {
+        type: sequelizeFwk.DataTypes.STRING,
         allowNull: false,
       },
       category_id: {
@@ -47,6 +79,16 @@ const init = async (sequelize) => {
         onDelete: "CASCADE",
         references: {
           model: constants.models.CATEGORY_TABLE,
+          key: "id",
+          deferrable: sequelizeFwk.Deferrable.INITIALLY_IMMEDIATE,
+        },
+      },
+      product_id: {
+        type: sequelizeFwk.DataTypes.UUID,
+        allowNull: true,
+        onDelete: "CASCADE",
+        references: {
+          model: constants.models.PRODUCT_TABLE,
           key: "id",
           deferrable: sequelizeFwk.Deferrable.INITIALLY_IMMEDIATE,
         },
@@ -61,30 +103,50 @@ const init = async (sequelize) => {
   await ProductModel.sync({ alter: true });
 };
 
-const create = async (req) => {
+const create = async (req, product_id = null) => {
+  // return console.log({ body: req.body });
   return await ProductModel.create({
     title: req.body.title,
+    variant_title: req?.body?.variant_title,
     description: req.body.description,
+    pictures: req.body.pictures,
+    tags: req.body.tags,
     slug: req.body.slug,
     type: req.body.type,
     moq: req.body.moq,
     price: req.body.price,
+    discounted_price: req.body.discounted_price,
+    weight: req.body.weight,
+    gst: req.body.gst,
+    category_id: req.body.category_id,
+    sku_id: req.body.sku_id,
+    quantity: req.body.quantity,
+    product_id: product_id,
   });
 };
 
 const get = async (req) => {
-  return await ProductModel.findAll({});
+  return await ProductModel.findAll({
+    where: { product_id: null },
+  });
 };
 
 const updateById = async (req, id) => {
   const [rowCount, rows] = await ProductModel.update(
     {
-      title: req.body.title,
-      description: req.body.description,
-      slug: req.body.slug,
-      type: req.body.type,
-      moq: req.body.moq,
-      price: req.body.price,
+      title: req?.body?.title,
+      description: req?.body?.description,
+      slug: req?.body?.slug,
+      type: req?.body?.type,
+      moq: req?.body?.moq,
+      tags: req?.body?.tags,
+      price: req?.body?.price,
+      discounted_price: req?.body?.discounted_price,
+      category_id: req.body.category_id,
+      weight: req.body.weight,
+      gst: req.body.gst,
+      sku_id: req.body.sku_id,
+      quantity: req.body.quantity,
     },
     {
       where: { id: req.params.id || id },
@@ -107,7 +169,14 @@ const updateBySlug = async (req, slug) => {
       slug: req?.body?.slug,
       type: req?.body?.type,
       moq: req?.body?.moq,
+      tags: req?.body?.tags,
       price: req?.body?.price,
+      discounted_price: req?.body?.discounted_price,
+      category_id: req.body.category_id,
+      weight: req.body.weight,
+      gst: req.body.gst,
+      sku_id: req.body.sku_id,
+      quantity: req.body.quantity,
     },
     {
       where: { slug: req.params.slug || slug },
@@ -126,9 +195,25 @@ const getById = async (req, id) => {
 };
 
 const getBySlug = async (req, slug) => {
-  return await ProductModel.findOne({
+  return await ProductModel.findAll({
     where: { slug: req.params.slug || slug },
-    raw: true,
+  });
+};
+
+const getVariantsBySlug = async (req, slug) => {
+  const query = `
+                SELECT
+                    p.*,
+                    pv.variant_title,
+                    cat.name as category_name
+                  FROM
+                    products p
+                    LEFT JOIN products pv on pv.product_id = p.id
+                    LEFT JOIN categories cat on p.category_id = cat.id
+                    WHERE p.slug = '${req.params.slug || slug}'
+                `;
+  return await ProductModel.sequelize.query(query, {
+    type: sequelizeFwk.QueryTypes.SELECT,
   });
 };
 
@@ -149,4 +234,5 @@ export default {
   getById: getById,
   getBySlug: getBySlug,
   deleteById: deleteById,
+  getVariantsBySlug: getVariantsBySlug,
 };

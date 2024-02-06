@@ -112,7 +112,34 @@ const getFile = async (req, res) => {
   }
 };
 
+const deleteFile = async (req, res) => {
+  try {
+    if (!req.query || !req.query.file_path) {
+      return res.send({
+        message: "file_path is required parameter",
+      });
+    }
+
+    const currentFilePath = fileURLToPath(import.meta.url);
+    const currentDirPath = dirname(currentFilePath);
+    const publicPath = path.join(
+      currentDirPath,
+      "../../..",
+      req.query.file_path
+    );
+    console.log({ publicPath });
+    if (fs.existsSync(publicPath)) {
+      fs.unlinkSync(publicPath);
+      res.send({ message: "File deleted" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.code(500).send(error);
+  }
+};
+
 export default {
   uploadFiles,
   getFile,
+  deleteFile,
 };

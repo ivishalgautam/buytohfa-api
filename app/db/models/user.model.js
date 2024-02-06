@@ -128,7 +128,6 @@ const getByUsername = async (req, record = undefined) => {
       "password",
       "blocked",
       "role",
-      "profession",
       "mobile_number",
       "is_verified",
       "image_url",

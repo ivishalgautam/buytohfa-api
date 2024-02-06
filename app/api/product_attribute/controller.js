@@ -4,17 +4,18 @@ import table from "../../db/models.js";
 import slugify from "slugify";
 
 const create = async (req, res) => {
+  console.log(req.body);
   try {
-    let slug = slugify(req.body.name, { lower: true });
+    let slug = slugify(req.body.slug, { lower: true });
     req.body.slug = slug;
-    const record = await table.CategoryModel.getBySlug(req, slug);
+    const record = await table.ProductAttributeModel.getBySlug(req, slug);
 
     if (record)
       return res
         .code(constants.http.status.BAD_REQUEST)
-        .send({ message: "Product exist with this name!" });
+        .send({ message: "Attribute exist with this slug!" });
 
-    const product = await table.CategoryModel.create(req);
+    const product = await table.ProductAttributeModel.create(req);
     res.send(product);
   } catch (error) {
     console.error(error);
@@ -24,26 +25,32 @@ const create = async (req, res) => {
 
 const updateById = async (req, res) => {
   try {
-    let slug = slugify(req.body.name, { lower: true });
+    let slug = slugify(req.body.slug, { lower: true });
     req.body.slug = slug;
 
-    const record = await table.CategoryModel.getById(req, req.params.id);
+    const record = await table.ProductAttributeModel.getById(
+      req,
+      req.params.id
+    );
 
     if (!record) {
       return res
         .code(constants.http.status.NOT_FOUND)
-        .send({ message: "Category not found!" });
+        .send({ message: "Attribute not found!" });
     }
 
-    const slugExist = await table.CategoryModel.getBySlug(req, req.body.slug);
+    const slugExist = await table.ProductAttributeModel.getBySlug(
+      req,
+      req.body.slug
+    );
 
     // Check if there's another Product with the same slug but a different ID
     if (slugExist && record?.id !== slugExist?.id)
       return res
-        .code(constants.http.status.FORBIDDEN)
-        .send({ message: "Product exist with this title!" });
+        .code(constants.http.status.BAD_REQUEST)
+        .send({ message: "Attribute exist with this slug!" });
 
-    res.send(await table.CategoryModel.update(req, req.params.id));
+    res.send(await table.ProductAttributeModel.update(req, req.params.id));
   } catch (error) {
     console.error(error);
     res.code(constants.http.status.INTERNAL_SERVER_ERROR).send(error);
@@ -55,15 +62,18 @@ const getBySlug = async (req, res) => {
     let slug = slugify(req.body.title, { lower: true });
     req.body.slug = slug;
 
-    const record = await table.CategoryModel.getBySlug(req, req.params.slug);
+    const record = await table.ProductAttributeModel.getBySlug(
+      req,
+      req.params.slug
+    );
 
     if (!record) {
       return res
         .code(constants.http.status.NOT_FOUND)
-        .send({ message: "Category not found!" });
+        .send({ message: "Attribute not found!" });
     }
 
-    res.send(await table.CategoryModel.getById(req, req.params.id));
+    res.send(await table.ProductAttributeModel.getById(req, req.params.id));
   } catch (error) {
     console.error(error);
     res.code(constants.http.status.INTERNAL_SERVER_ERROR).send(error);
@@ -72,12 +82,15 @@ const getBySlug = async (req, res) => {
 
 const getById = async (req, res) => {
   try {
-    const record = await table.CategoryModel.getById(req, req.params.id);
+    const record = await table.ProductAttributeModel.getById(
+      req,
+      req.params.id
+    );
 
     if (!record) {
       return res
         .code(constants.http.status.NOT_FOUND)
-        .send({ message: "Category not found!" });
+        .send({ message: "Attribute not found!" });
     }
 
     res.send(record);
@@ -89,7 +102,7 @@ const getById = async (req, res) => {
 
 const get = async (req, res) => {
   try {
-    const products = await table.CategoryModel.get(req);
+    const products = await table.ProductAttributeModel.get(req);
     res.send(products);
   } catch (error) {
     console.error(error);
@@ -99,15 +112,18 @@ const get = async (req, res) => {
 
 const deleteById = async (req, res) => {
   try {
-    const record = await table.CategoryModel.getById(req, req.params.id);
+    const record = await table.ProductAttributeModel.getById(
+      req,
+      req.params.id
+    );
 
     if (!record)
       return res
         .code(constants.http.status.NOT_FOUND)
-        .send({ message: "Category not found!" });
+        .send({ message: "Attribute not found!" });
 
-    await table.CategoryModel.deleteById(req, req.params.id);
-    res.send({ mesage: "Category deleted." });
+    await table.ProductAttributeModel.deleteById(req, req.params.id);
+    res.send({ mesage: "Attribute deleted." });
   } catch (error) {
     console.error(error);
     res.code(constants.http.status.INTERNAL_SERVER_ERROR).send(error);

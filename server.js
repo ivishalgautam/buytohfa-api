@@ -6,7 +6,7 @@ import { dirname } from "path";
 import path from "path";
 
 // import internal modules
-// import authRoutes from "./app/api/auth/routes.js";
+import authRoutes from "./app/api/auth/routes.js";
 import pg_database from "./app/db/postgres.js";
 import routes from "./app/routes/v1/index.js";
 import uploadFileRoutes from "./app/api/upload_files/routes.js";
@@ -17,7 +17,6 @@ import uploadFileRoutes from "./app/api/upload_files/routes.js";
 export default (app) => {
   app.register(fastifyStatic, {
     root: path.join(dirname(fileURLToPath(import.meta.url), "public")),
-    prefix: "/public/",
   });
   app.register(cors, { origin: "*" });
   app.register(pg_database);
@@ -26,6 +25,6 @@ export default (app) => {
   });
   // Increase the payload size limit
   app.register(routes, { prefix: "v1" });
-  //   app.register(authRoutes, { prefix: "v1/auth" });
+  app.register(authRoutes, { prefix: "v1/auth" });
   app.register(uploadFileRoutes, { prefix: "v1/upload" });
 };

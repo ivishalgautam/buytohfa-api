@@ -2,11 +2,11 @@
 import constants from "../../lib/constants/index.js";
 import sequelizeFwk from "sequelize";
 
-let CategoryModel = null;
+let ProductAttributeTermModel = null;
 
 const init = async (sequelize) => {
-  CategoryModel = sequelize.define(
-    constants.models.CATEGORY_TABLE,
+  ProductAttributeTermModel = sequelize.define(
+    constants.models.PRODUCT_ATTRIBUTE_TERM_TABLE,
     {
       id: {
         primaryKey: true,
@@ -14,6 +14,16 @@ const init = async (sequelize) => {
         type: sequelizeFwk.DataTypes.UUID,
         defaultValue: sequelizeFwk.DataTypes.UUIDV4,
         unique: true,
+      },
+      attribute_id: {
+        type: sequelizeFwk.DataTypes.UUID,
+        onDelete: "CASCADE",
+        allowNull: false,
+        references: {
+          model: constants.models.PRODUCT_ATTRIBUTE_TABLE,
+          key: "id",
+          deferrable: sequelizeFwk.Deferrable.INITIALLY_IMMEDIATE,
+        },
       },
       name: {
         type: sequelizeFwk.DataTypes.STRING,
@@ -30,24 +40,25 @@ const init = async (sequelize) => {
     }
   );
 
-  await CategoryModel.sync({ alter: true });
+  await ProductAttributeTermModel.sync({ alter: true });
 };
 
 const create = async (req) => {
-  return await CategoryModel.create({
+  return await ProductAttributeTermModel.create({
     name: req.body.name,
     slug: req.body.slug,
+    attribute_id: req.body.attribute_id,
   });
 };
 
 const get = async (req) => {
-  return await CategoryModel.findAll({
+  return await ProductAttributeTermModel.findAll({
     order: [["created_at", "DESC"]],
   });
 };
 
 const update = async (req, id) => {
-  const [rowCount, rows] = await CategoryModel.update(
+  const [rowCount, rows] = await ProductAttributeTermModel.update(
     {
       name: req.body.name,
       slug: req.body.slug,
@@ -65,15 +76,23 @@ const update = async (req, id) => {
 };
 
 const getById = async (req, id) => {
-  return await CategoryModel.findOne({
+  return await ProductAttributeTermModel.findOne({
     where: {
       id: req.params.id || id,
     },
   });
 };
 
+const getByAttributeId = async (req, id) => {
+  return await ProductAttributeTermModel.findAll({
+    where: {
+      attribute_id: req.params.id || id,
+    },
+  });
+};
+
 const getBySlug = async (req, slug) => {
-  return await CategoryModel.findOne({
+  return await ProductAttributeTermModel.findOne({
     where: {
       slug: req.params.slug || slug,
     },
@@ -82,7 +101,7 @@ const getBySlug = async (req, slug) => {
 };
 
 const deleteById = async (req, id) => {
-  return await CategoryModel.destroy({
+  return await ProductAttributeTermModel.destroy({
     where: { id: req.params.id || id },
   });
 };
@@ -93,6 +112,7 @@ export default {
   get: get,
   update: update,
   getById: getById,
+  getByAttributeId: getByAttributeId,
   getBySlug: getBySlug,
   deleteById: deleteById,
 };

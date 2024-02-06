@@ -42,9 +42,11 @@ const constants = {
     },
   },
   models: {
+    USER_TABLE: "users",
     PRODUCT_TABLE: "products",
     CATEGORY_TABLE: "categories",
-    USER_TABLE: "users",
+    PRODUCT_ATTRIBUTE_TABLE: "product_attributes",
+    PRODUCT_ATTRIBUTE_TERM_TABLE: "product_attribute_terms",
   },
   bcrypt: {
     SALT_ROUNDS: 10,

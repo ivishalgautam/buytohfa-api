@@ -3,22 +3,39 @@ import constants from "../../lib/constants/index.js";
 import table from "../../db/models.js";
 import slugify from "slugify";
 
+const { BAD_REQUEST, INTERNAL_SERVER_ERROR, NOT_FOUND } = constants.http.status;
+
 const create = async (req, res) => {
+  console.log(req.body);
   try {
     let slug = slugify(req.body.title, { lower: true });
     req.body.slug = slug;
     const record = await table.ProductModel.getBySlug(req, slug);
 
-    if (record)
+    if (record.length > 0)
       return res
-        .code(constants.http.status.FORBIDDEN)
+        .code(BAD_REQUEST)
         .send({ message: "Product exist with this name!" });
 
     const product = await table.ProductModel.create(req);
-    res.send(product);
+
+    if (product && req.body?.variants?.length > 0) {
+      for await (const variant of req.body?.variants) {
+        req.body.slug = null;
+        req.body.price = variant.price;
+        req.body.variant_title = variant.name;
+        req.body.discounted_price = variant.discounted_price;
+        req.body.pictures = [variant.image_path];
+        req.body.quantity = variant.quantity;
+        req.body.sku_id = variant.sku_id;
+        req.body.weight = variant.weight;
+        await table.ProductModel.create(req, product?.id);
+      }
+    }
+    res.send({ data: product });
   } catch (error) {
     console.error(error);
-    res.code(constants.http.status.INTERNAL_SERVER_ERROR).send(error);
+    res.code(INTERNAL_SERVER_ERROR).send(error);
   }
 };
 
@@ -30,9 +47,7 @@ const updateById = async (req, res) => {
     const record = await table.ProductModel.getById(req, req.params.id);
 
     if (!record) {
-      return res
-        .code(constants.http.status.NOT_FOUND)
-        .send({ message: "Product not found!" });
+      return res.code(NOT_FOUND).send({ message: "Product not found!" });
     }
 
     const slugExist = await table.ProductModel.getBySlug(req, req.body.slug);
@@ -40,43 +55,57 @@ const updateById = async (req, res) => {
     // Check if there's another product with the same slug but a different ID
     if (slugExist && record?.id !== slugExist?.id)
       return res
-        .code(constants.http.status.FORBIDDEN)
+        .code(BAD_REQUEST)
         .send({ message: "Product exist with this title!" });
 
     res.send(await table.ProductModel.updateById(req, req.params.id));
   } catch (error) {
     console.error(error);
-    res.code(constants.http.status.INTERNAL_SERVER_ERROR).send(error);
+    res.code(INTERNAL_SERVER_ERROR).send(error);
   }
 };
 
 const getBySlug = async (req, res) => {
   try {
-    let slug = slugify(req.body.title, { lower: true });
-    req.body.slug = slug;
-
-    const record = await table.ProductModel.getBySlug(req, req.params.slug);
+    const record = await table.ProductModel.getVariantsBySlug(
+      req,
+      req.params.slug
+    );
 
     if (!record) {
-      return res
-        .code(constants.http.status.NOT_FOUND)
-        .send({ message: "Product not found!" });
+      return res.code(NOT_FOUND).send({ message: "Product not found!" });
     }
 
-    res.send(record);
+    res.send({ data: record });
   } catch (error) {
     console.error(error);
-    res.code(constants.http.status.INTERNAL_SERVER_ERROR).send(error);
+    res.code(INTERNAL_SERVER_ERROR).send(error);
+  }
+};
+
+const getById = async (req, res) => {
+  try {
+    const record = await table.ProductModel.getById(req, req.params.id);
+
+    if (!record) {
+      return res.code(NOT_FOUND).send({ message: "Product not found!" });
+    }
+
+    res.send({ data: record });
+  } catch (error) {
+    console.error(error);
+    res.code(INTERNAL_SERVER_ERROR).send(error);
   }
 };
 
 const get = async (req, res) => {
   try {
     const products = await table.ProductModel.get(req);
-    res.send(products);
+    console.log({ products });
+    res.send({ data: products });
   } catch (error) {
     console.error(error);
-    res.code(constants.http.status.INTERNAL_SERVER_ERROR).send(error);
+    res.code(INTERNAL_SERVER_ERROR).send(error);
   }
 };
 
@@ -85,15 +114,13 @@ const deleteById = async (req, res) => {
     const record = await table.ProductModel.getById(req, req.params.id);
 
     if (!record)
-      return res
-        .code(constants.http.status.NOT_FOUND)
-        .send({ message: "Product not found!" });
+      return res.code(NOT_FOUND).send({ message: "Product not found!" });
 
     await table.ProductModel.deleteById(req, req.params.id);
-    res.send({ mesage: "Product deleted." });
+    res.send({ message: "Product deleted." });
   } catch (error) {
     console.error(error);
-    res.code(constants.http.status.INTERNAL_SERVER_ERROR).send(error);
+    res.code(INTERNAL_SERVER_ERROR).send(error);
   }
 };
 
@@ -103,4 +130,5 @@ export default {
   updateById: updateById,
   deleteById: deleteById,
   getBySlug: getBySlug,
+  getById: getById,
 };
