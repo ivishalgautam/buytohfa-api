@@ -44,6 +44,10 @@ const init = async (sequelize) => {
         type: sequelizeFwk.DataTypes.INTEGER,
         allowNull: false,
       },
+      discounts: {
+        type: sequelizeFwk.DataTypes.JSONB,
+        defaultValue: [],
+      },
       type: {
         type: sequelizeFwk.DataTypes.ENUM,
         values: ["personalized", "corporate"],
@@ -62,6 +66,10 @@ const init = async (sequelize) => {
         allowNull: true,
       },
       weight: {
+        type: sequelizeFwk.DataTypes.INTEGER,
+        allowNull: false,
+      },
+      weight_measurement: {
         type: sequelizeFwk.DataTypes.STRING,
         allowNull: false,
       },
@@ -71,6 +79,18 @@ const init = async (sequelize) => {
       },
       sku_id: {
         type: sequelizeFwk.DataTypes.STRING,
+        allowNull: false,
+      },
+      hsn_code: {
+        type: sequelizeFwk.DataTypes.STRING,
+        allowNull: false,
+      },
+      meta_title: {
+        type: sequelizeFwk.DataTypes.STRING,
+        allowNull: false,
+      },
+      meta_description: {
+        type: sequelizeFwk.DataTypes.TEXT,
         allowNull: false,
       },
       category_id: {
@@ -117,10 +137,15 @@ const create = async (req, product_id = null) => {
     price: req.body.price,
     discounted_price: req.body.discounted_price,
     weight: req.body.weight,
+    weight_measurement: req.body.weight_measurement,
     gst: req.body.gst,
     category_id: req.body.category_id,
     sku_id: req.body.sku_id,
+    hsn_code: req.body.hsn_code,
     quantity: req.body.quantity,
+    discounts: req.body.discounts,
+    meta_title: req.body.meta_title,
+    meta_description: req.body.meta_description,
     product_id: product_id,
   });
 };
@@ -144,9 +169,15 @@ const updateById = async (req, id) => {
       discounted_price: req?.body?.discounted_price,
       category_id: req.body.category_id,
       weight: req.body.weight,
+      weight_measurement: req.body.weight_measurement,
       gst: req.body.gst,
       sku_id: req.body.sku_id,
+      hsn_code: req.body.hsn_code,
       quantity: req.body.quantity,
+      meta_title: req.body.meta_title,
+      meta_description: req.body.meta_description,
+      discounts: req.body.discounts,
+      pictures: req.body.pictures,
     },
     {
       where: { id: req.params.id || id },
@@ -187,10 +218,32 @@ const updateBySlug = async (req, slug) => {
 };
 
 const getById = async (req, id) => {
-  return await ProductModel.findOne({
-    where: { id: req.params.id || id },
-    returning: true,
-    raw: true,
+  let query = `
+        SELECT
+            prd.title, prd.variant_title, prd.description, prd.pictures, prd.tags, prd.slug, prd.type, prd.moq, prd.price, prd.discounted_price, 
+            prd.weight, prd.gst, prd.category_id, prd.sku_id, prd.quantity, prd.meta_title, prd.meta_description, prd.discounts, prd.hsn_code, prd.weight_measurement,
+            jsonb_agg(jsonb_build_object(
+                'id', pv.id,
+                'name', pv.variant_title,
+                'discounted_price', pv.discounted_price,
+                'price', pv.price,
+                'quantity', pv.quantity,
+                'sku_id', pv.sku_id,
+                'weight', pv.weight,
+                'image_path', pv.pictures
+            )) AS variants
+        FROM 
+        products prd
+        LEFT JOIN products pv ON pv.product_id = prd.id
+        WHERE prd.id = '${req.params.id || id}'
+        GROUP BY 
+            prd.title, prd.variant_title, prd.description, prd.pictures, prd.tags, prd.slug, prd.type, prd.moq, prd.price, prd.discounted_price, 
+            prd.weight, prd.gst, prd.category_id, prd.sku_id, prd.quantity, prd.meta_title, prd.meta_description, prd.discounts, prd.hsn_code, prd.weight_measurement;
+`;
+
+  return await ProductModel.sequelize.query(query, {
+    type: sequelizeFwk.QueryTypes.SELECT,
+    plain: true,
   });
 };
 
