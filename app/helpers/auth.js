@@ -48,7 +48,6 @@ const verifyToken = async (req, res) => {
 };
 
 const verifyRefreshToken = async (req, res) => {
-  console.log(req.body);
   try {
     const decoded = jwt.verify(
       req.body.refresh_token,

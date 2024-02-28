@@ -61,7 +61,7 @@ const init = async (sequelize) => {
         type: sequelizeFwk.DataTypes.DECIMAL(10, 2),
         allowNull: false,
       },
-      discounted_price: {
+      sale_price: {
         type: sequelizeFwk.DataTypes.DECIMAL(10, 2),
         allowNull: true,
       },
@@ -84,6 +84,10 @@ const init = async (sequelize) => {
       hsn_code: {
         type: sequelizeFwk.DataTypes.STRING,
         allowNull: false,
+      },
+      is_featured: {
+        type: sequelizeFwk.DataTypes.BOOLEAN,
+        defaultValue: false,
       },
       meta_title: {
         type: sequelizeFwk.DataTypes.STRING,
@@ -113,6 +117,14 @@ const init = async (sequelize) => {
           deferrable: sequelizeFwk.Deferrable.INITIALLY_IMMEDIATE,
         },
       },
+      attributes: {
+        type: sequelizeFwk.DataTypes.JSONB,
+        defaultValue: "[]",
+      },
+      is_published: {
+        type: sequelizeFwk.DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
     },
     {
       createdAt: "created_at",
@@ -135,7 +147,7 @@ const create = async (req, product_id = null) => {
     type: req.body.type,
     moq: req.body.moq,
     price: req.body.price,
-    discounted_price: req.body.discounted_price,
+    sale_price: req.body.sale_price,
     weight: req.body.weight,
     weight_measurement: req.body.weight_measurement,
     gst: req.body.gst,
@@ -146,13 +158,57 @@ const create = async (req, product_id = null) => {
     discounts: req.body.discounts,
     meta_title: req.body.meta_title,
     meta_description: req.body.meta_description,
+    attribute_id: req.body?.attribute_id,
     product_id: product_id,
   });
 };
 
 const get = async (req) => {
-  return await ProductModel.findAll({
-    where: { product_id: null },
+  let whereQuery = `WHERE prd.product_id IS null`;
+
+  if (req?.user_data?.role !== "admin") {
+    // whereClause.is_published = true;
+    whereQuery += ` AND prd.is_published IS true`;
+  }
+
+  let query = `
+        SELECT
+            prd.id, prd.title, prd.description, prd.pictures, prd.tags, prd.slug, prd.type, prd.moq, prd.price::integer, prd.sale_price::integer, prd.weight, prd.gst, 
+            prd.category_id, prd.sku_id, prd.quantity, prd.is_published, prd.meta_title, prd.meta_description, prd.discounts, prd.hsn_code, prd.weight_measurement,
+            cat.name as category_name,
+            jsonb_agg(jsonb_build_object(
+                'id', pat.id,
+                'value', pat.name,
+                'sale_price', pv.sale_price,
+                'price', pv.price,
+                'image_path', pic->>'image_path',
+                'attribute', json_build_object(
+                  'id', pa.id,
+                  'name', pa.name,
+                  'slug', pa.slug
+                )
+            )) AS variants
+        FROM 
+        products prd
+        LEFT JOIN LATERAL (
+          SELECT jsonb_build_object('image_path', value)::jsonb AS pic
+          FROM unnest(prd.pictures) AS u(value)
+          LIMIT 1
+        ) AS pic ON true
+        LEFT JOIN products pv ON pv.product_id = prd.id
+        LEFT JOIN product_attribute_terms pat ON pat.id = pv.attribute_id
+        LEFT JOIN product_attributes pa ON pa.id = pat.attribute_id
+        LEFT JOIN categories cat ON cat.id = prd.category_id
+        ${whereQuery}
+        GROUP BY
+            prd.id, prd.title, prd.description, prd.pictures, prd.tags, prd.slug, prd.type, prd.moq, prd.price, prd.sale_price, prd.weight, prd.gst, 
+            prd.category_id, prd.sku_id, prd.quantity, prd.is_published, prd.meta_title, prd.meta_description, prd.discounts, prd.hsn_code, prd.weight_measurement,
+            cat.name;
+`;
+
+  return await ProductModel.sequelize.query(query, {
+    type: sequelizeFwk.QueryTypes.SELECT,
+    raw: true,
   });
 };
 
@@ -166,7 +222,7 @@ const updateById = async (req, id) => {
       moq: req?.body?.moq,
       tags: req?.body?.tags,
       price: req?.body?.price,
-      discounted_price: req?.body?.discounted_price,
+      sale_price: req?.body?.sale_price,
       category_id: req.body.category_id,
       weight: req.body.weight,
       weight_measurement: req.body.weight_measurement,
@@ -178,6 +234,7 @@ const updateById = async (req, id) => {
       meta_description: req.body.meta_description,
       discounts: req.body.discounts,
       pictures: req.body.pictures,
+      attribute_id: req.body.attribute_id,
     },
     {
       where: { id: req.params.id || id },
@@ -192,52 +249,35 @@ const updateById = async (req, id) => {
   return rows[0];
 };
 
-const updateBySlug = async (req, slug) => {
-  return await ProductModel.update(
-    {
-      title: req?.body?.title,
-      description: req?.body?.description,
-      slug: req?.body?.slug,
-      type: req?.body?.type,
-      moq: req?.body?.moq,
-      tags: req?.body?.tags,
-      price: req?.body?.price,
-      discounted_price: req?.body?.discounted_price,
-      category_id: req.body.category_id,
-      weight: req.body.weight,
-      gst: req.body.gst,
-      sku_id: req.body.sku_id,
-      quantity: req.body.quantity,
-    },
-    {
-      where: { slug: req.params.slug || slug },
-      returning: true,
-      raw: true,
-    }
-  );
-};
-
 const getById = async (req, id) => {
   let query = `
         SELECT
-            prd.title, prd.variant_title, prd.description, prd.pictures, prd.tags, prd.slug, prd.type, prd.moq, prd.price, prd.discounted_price, 
+            prd.title, prd.variant_title, prd.description, prd.pictures, prd.tags, prd.slug, prd.type, prd.moq, prd.price::integer, prd.sale_price::integer, 
             prd.weight, prd.gst, prd.category_id, prd.sku_id, prd.quantity, prd.meta_title, prd.meta_description, prd.discounts, prd.hsn_code, prd.weight_measurement,
             jsonb_agg(jsonb_build_object(
-                'id', pv.id,
-                'name', pv.variant_title,
-                'discounted_price', pv.discounted_price,
-                'price', pv.price,
-                'quantity', pv.quantity,
-                'sku_id', pv.sku_id,
-                'weight', pv.weight,
-                'image_path', pv.pictures
+              'id', pv.id,
+              'attribute_id', pv.attribute_id,
+              'name', pv.variant_title,
+              'attribute_name', pat.name,
+              'sale_price', pv.sale_price,
+              'price', pv.price,
+              'quantity', pv.quantity,
+              'sku_id', pv.sku_id,
+              'weight', pv.weight,
+              'image_path', pic->>'image_path'
             )) AS variants
         FROM 
         products prd
         LEFT JOIN products pv ON pv.product_id = prd.id
+        LEFT JOIN product_attribute_terms pat ON pat.id = prd.attribute_id
+        LEFT JOIN LATERAL (
+          SELECT jsonb_build_object('image_path', value)::jsonb AS pic
+          FROM unnest(pv.pictures) AS u(value)
+          LIMIT 1
+        ) AS pic ON true
         WHERE prd.id = '${req.params.id || id}'
         GROUP BY 
-            prd.title, prd.variant_title, prd.description, prd.pictures, prd.tags, prd.slug, prd.type, prd.moq, prd.price, prd.discounted_price, 
+            prd.title, prd.variant_title, prd.description, prd.pictures, prd.tags, prd.slug, prd.type, prd.moq, prd.price, prd.sale_price, 
             prd.weight, prd.gst, prd.category_id, prd.sku_id, prd.quantity, prd.meta_title, prd.meta_description, prd.discounts, prd.hsn_code, prd.weight_measurement;
 `;
 
@@ -248,8 +288,44 @@ const getById = async (req, id) => {
 };
 
 const getBySlug = async (req, slug) => {
-  return await ProductModel.findAll({
-    where: { slug: req.params.slug || slug },
+  let query = `
+        SELECT
+          prd.id, prd.title, prd.description, prd.pictures, prd.tags, prd.slug, prd.type, prd.moq, prd.price::integer, prd.sale_price::integer, prd.weight, prd.gst, 
+          prd.category_id, prd.sku_id, prd.quantity, prd.meta_title, prd.meta_description, prd.discounts, prd.hsn_code, prd.weight_measurement,
+          cat.name as category_name,
+          jsonb_agg(jsonb_build_object(
+            'id', pat.id,
+            'value', pat.name,
+            'sale_price', pv.sale_price,
+            'price', pv.price,
+            'slug', pv.slug,
+            'image_path', pic->>'image_path',
+            'attribute', json_build_object(
+              'id', pa.id,
+              'name', pa.name,
+              'slug', pa.slug
+            )
+          )) AS variants
+        FROM
+        products prd
+        LEFT JOIN LATERAL (
+          SELECT jsonb_build_object('image_path', value)::jsonb AS pic
+          FROM unnest(prd.pictures) AS u(value)
+          LIMIT 1
+        ) AS pic ON true
+        LEFT JOIN products pv ON pv.product_id = prd.id OR pv.product_id = prd.product_id
+        LEFT JOIN product_attribute_terms pat ON pat.id = pv.attribute_id
+        LEFT JOIN product_attributes pa ON pa.id = pat.attribute_id
+        LEFT JOIN categories cat ON cat.id = prd.category_id
+        WHERE prd.slug = '${req.params.slug || slug}'
+        GROUP BY 
+          prd.id, prd.title, prd.description, prd.pictures, prd.tags, prd.slug, prd.type, prd.moq, prd.price, prd.sale_price, prd.weight, prd.gst,
+          prd.category_id, prd.sku_id, prd.quantity, prd.meta_title, prd.meta_description, prd.discounts, prd.hsn_code, prd.weight_measurement,
+          cat.name;
+`;
+  return await ProductModel.sequelize.query(query, {
+    type: sequelizeFwk.QueryTypes.SELECT,
+    plain: true,
   });
 };
 
@@ -278,14 +354,32 @@ const deleteById = async (req, id) => {
   });
 };
 
+const publishProductById = async (id, value) => {
+  const [rowCount, rows] = await ProductModel.update(
+    {
+      is_published: value,
+    },
+    {
+      where: {
+        id: id,
+      },
+      returning: true,
+      plain: true,
+      raw: true,
+    }
+  );
+
+  return rows;
+};
+
 export default {
   init: init,
   create: create,
   get: get,
   updateById: updateById,
-  updateBySlug: updateBySlug,
   getById: getById,
   getBySlug: getBySlug,
   deleteById: deleteById,
   getVariantsBySlug: getVariantsBySlug,
+  publishProductById: publishProductById,
 };

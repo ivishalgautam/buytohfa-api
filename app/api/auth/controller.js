@@ -12,7 +12,7 @@ const verifyUserCredentials = async (req, res) => {
     userData = await table.UserModel.getByUsername(req);
   } catch (error) {
     console.log(error);
-    return res.json(error);
+    return res.send(error);
   }
 
   if (!userData) {

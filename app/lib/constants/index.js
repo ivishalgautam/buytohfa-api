@@ -47,6 +47,8 @@ const constants = {
     CATEGORY_TABLE: "categories",
     PRODUCT_ATTRIBUTE_TABLE: "product_attributes",
     PRODUCT_ATTRIBUTE_TERM_TABLE: "product_attribute_terms",
+    PRODUCT_COMMENT_TABLE: "product_comments",
+    BANNER_TABLE: "banners",
   },
   bcrypt: {
     SALT_ROUNDS: 10,

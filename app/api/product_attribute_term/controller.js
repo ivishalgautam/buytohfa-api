@@ -24,7 +24,7 @@ const create = async (req, res) => {
 
 const updateById = async (req, res) => {
   try {
-    let slug = slugify(req.body.slug, { lower: true });
+    let slug = slugify(req.body.name, { lower: true });
     req.body.slug = slug;
 
     const record = await table.ProductAttributeTermModel.getById(

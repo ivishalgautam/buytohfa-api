@@ -1,5 +1,4 @@
 "use strict";
-
 import controller from "./controller.js";
 import userController from "../users/controller.js";
 

@@ -2,11 +2,11 @@
 import constants from "../../lib/constants/index.js";
 import sequelizeFwk from "sequelize";
 
-let CategoryModel = null;
+let BannerModel = null;
 
 const init = async (sequelize) => {
-  CategoryModel = sequelize.define(
-    constants.models.CATEGORY_TABLE,
+  BannerModel = sequelize.define(
+    constants.models.BANNER_TABLE,
     {
       id: {
         primaryKey: true,
@@ -14,6 +14,10 @@ const init = async (sequelize) => {
         type: sequelizeFwk.DataTypes.UUID,
         defaultValue: sequelizeFwk.DataTypes.UUIDV4,
         unique: true,
+      },
+      type: {
+        type: sequelizeFwk.DataTypes.ENUM("featured", "top-selling", "main"),
+        allowNull: false,
       },
       name: {
         type: sequelizeFwk.DataTypes.STRING,
@@ -24,38 +28,37 @@ const init = async (sequelize) => {
         allowNull: false,
       },
       image: {
-        type: sequelizeFwk.DataTypes.TEXT,
+        type: sequelizeFwk.DataTypes.JSONB,
         allowNull: false,
       },
     },
-    {
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-    }
+    { createdAt: "created_at", updatedAt: "updated_at" }
   );
 
-  await CategoryModel.sync({ alter: true });
+  await BannerModel.sync({ alter: true });
 };
 
 const create = async (req) => {
-  return await CategoryModel.create({
-    name: req.body.name,
+  return await BannerModel.create({
+    type: req.body.type,
     image: req.body.image,
+    name: req.body.name,
     slug: req.body.slug,
   });
 };
 
 const get = async (req) => {
-  return await CategoryModel.findAll({
+  return await BannerModel.findAll({
     order: [["created_at", "DESC"]],
   });
 };
 
 const update = async (req, id) => {
-  const [rowCount, rows] = await CategoryModel.update(
+  const [rowCount, rows] = await BannerModel.update(
     {
-      name: req.body.name,
+      type: req.body.type,
       image: req.body.image,
+      name: req.body.name,
       slug: req.body.slug,
     },
     {
@@ -71,7 +74,7 @@ const update = async (req, id) => {
 };
 
 const getById = async (req, id) => {
-  return await CategoryModel.findOne({
+  return await BannerModel.findOne({
     where: {
       id: req.params.id || id,
     },
@@ -79,7 +82,7 @@ const getById = async (req, id) => {
 };
 
 const getBySlug = async (req, slug) => {
-  return await CategoryModel.findOne({
+  return await BannerModel.findOne({
     where: {
       slug: req.params.slug || slug,
     },
@@ -88,7 +91,7 @@ const getBySlug = async (req, slug) => {
 };
 
 const deleteById = async (req, id) => {
-  return await CategoryModel.destroy({
+  return await BannerModel.destroy({
     where: { id: req.params.id || id },
   });
 };

@@ -2,6 +2,7 @@
 import constants from "../../lib/constants/index.js";
 import table from "../../db/models.js";
 import slugify from "slugify";
+import fileController from "../upload_files/controller.js";
 
 const create = async (req, res) => {
   try {
@@ -90,7 +91,7 @@ const getById = async (req, res) => {
 const get = async (req, res) => {
   try {
     const products = await table.CategoryModel.get(req);
-    res.send(products);
+    res.send({ data: products });
   } catch (error) {
     console.error(error);
     res.code(constants.http.status.INTERNAL_SERVER_ERROR).send(error);
@@ -107,6 +108,8 @@ const deleteById = async (req, res) => {
         .send({ message: "Category not found!" });
 
     await table.CategoryModel.deleteById(req, req.params.id);
+    req.query.file_path = record?.image;
+    fileController.deleteFile(req, res);
     res.send({ mesage: "Category deleted." });
   } catch (error) {
     console.error(error);

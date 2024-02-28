@@ -4,11 +4,11 @@ import controller from "./controller.js";
 const schema = {
   type: "object",
   properties: {
+    type: { type: "string" },
     name: { type: "string" },
-    slug: { type: "string" },
-    image: { type: "string" },
+    image: { type: "object" },
   },
-  required: ["name", "slug", "image"],
+  required: ["type", "name", "image"],
 };
 
 export default async function routes(fastify, options) {
@@ -21,8 +21,8 @@ export default async function routes(fastify, options) {
     },
     controller.create
   );
+  fastify.get("/", {}, controller.get);
   fastify.put("/:id", {}, controller.updateById);
   fastify.delete("/:id", {}, controller.deleteById);
-  fastify.get("/:slug", {}, controller.getBySlug);
-  fastify.get("/getById/:id", {}, controller.getById);
+  fastify.get("/:id", {}, controller.getById);
 }

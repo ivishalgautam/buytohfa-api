@@ -11,7 +11,7 @@ const create = async (req, res) => {
     req.body.slug = slug;
     const record = await table.ProductModel.getBySlug(req, slug);
 
-    if (record.length > 0)
+    if (record)
       return res
         .code(BAD_REQUEST)
         .send({ message: "Product exist with this name!" });
@@ -23,11 +23,12 @@ const create = async (req, res) => {
         req.body.slug = null;
         req.body.price = variant.price;
         req.body.variant_title = variant.name;
-        req.body.discounted_price = variant.discounted_price;
+        req.body.sale_price = variant.sale_price;
         req.body.pictures = [variant.image_path];
         req.body.quantity = variant.quantity;
         req.body.sku_id = variant.sku_id;
         req.body.weight = variant.weight;
+        req.body.attribute_id = variant.attribute_id;
         await table.ProductModel.create(req, product?.id);
       }
     }
@@ -39,9 +40,10 @@ const create = async (req, res) => {
 };
 
 const updateById = async (req, res) => {
+  console.log({ variants: req.body.variants });
   try {
-    let slug = slugify(req.body.title, { lower: true });
-    req.body.slug = slug;
+    // let slug = slugify(req.body.title, { lower: true });
+    // req.body.slug = slug;
 
     const record = await table.ProductModel.getById(req, req.params.id);
 
@@ -49,30 +51,39 @@ const updateById = async (req, res) => {
       return res.code(NOT_FOUND).send({ message: "Product not found!" });
     }
 
-    const slugExist = await table.ProductModel.getBySlug(req, req.body.slug);
+    // const slugExist = await table.ProductModel.getBySlug(req, req.body.slug);
 
     // Check if there's another product with the same slug but a different ID
-    if (slugExist && record?.id !== slugExist?.id)
-      return res
-        .code(BAD_REQUEST)
-        .send({ message: "Product exist with this title!" });
+    // if (slugExist && record?.id !== slugExist?.id)
+    //   return res
+    //     .code(BAD_REQUEST)
+    //     .send({ message: "Product exist with this title!" });
 
     await table.ProductModel.updateById(req, req.params.id);
 
     if (req.body?.variants?.length > 0) {
       for await (const variant of req.body?.variants) {
-        req.params.id = variant?.id;
-        req.body.slug = null;
         req.body.price = variant.price;
         req.body.variant_title = variant.name;
-        req.body.discounted_price = variant.discounted_price;
+        req.body.sale_price = variant.sale_price;
         req.body.pictures = [variant.image_path];
         req.body.quantity = variant.quantity;
-        req.body.sku_id = variant.sku_id;
+        req.body.sku_id = slugify(variant.sku_id.toUpperCase(), {
+          lower: false,
+        });
         req.body.weight = variant.weight;
-        console.log({ body: req.body });
+        req.body.attributes = variant.attributes;
+        req.body.slug = slugify(`${variant.sku_id}`, {
+          lower: true,
+        });
 
-        await table.ProductModel.updateById(req, variant?.id);
+        if (variant?.id) {
+          req.params.id = variant?.id;
+          await table.ProductModel.updateById(req, variant?.id);
+        } else {
+          console.log("create");
+          await table.ProductModel.create(req, req.params.id);
+        }
       }
     }
 
@@ -85,16 +96,29 @@ const updateById = async (req, res) => {
 
 const getBySlug = async (req, res) => {
   try {
-    const record = await table.ProductModel.getVariantsBySlug(
-      req,
-      req.params.slug
-    );
+    const record = await table.ProductModel.getBySlug(req, req.params.slug);
 
     if (!record) {
       return res.code(NOT_FOUND).send({ message: "Product not found!" });
     }
 
-    res.send({ data: record });
+    console.log(record.variants);
+
+    console.log({
+      variants: record.variants?.filter(
+        (so) => !Object.values(so).some((d) => d === null)
+      ),
+    });
+
+    const data = {
+      ...record,
+      variants:
+        record.variants?.filter(
+          (so) => !Object.values(so).some((d) => d === null)
+        ) ?? [],
+    };
+
+    res.send({ data: data });
   } catch (error) {
     console.error(error);
     res.code(INTERNAL_SERVER_ERROR).send(error);
@@ -109,7 +133,14 @@ const getById = async (req, res) => {
       return res.code(NOT_FOUND).send({ message: "Product not found!" });
     }
 
-    res.send({ data: record });
+    const data = {
+      ...record,
+      variants:
+        record.variants?.filter(
+          (so) => !Object.values(so).every((d) => d === null)
+        ) ?? [],
+    };
+    res.send({ data: data });
   } catch (error) {
     console.error(error);
     res.code(INTERNAL_SERVER_ERROR).send(error);
@@ -119,8 +150,13 @@ const getById = async (req, res) => {
 const get = async (req, res) => {
   try {
     const products = await table.ProductModel.get(req);
-    console.log({ products });
-    res.send({ data: products });
+    const data = products?.map((product) => ({
+      ...product,
+      price: parseInt(product.price),
+      sale_price: parseInt(product.sale_price),
+    }));
+
+    res.send({ data });
   } catch (error) {
     console.error(error);
     res.code(INTERNAL_SERVER_ERROR).send(error);
@@ -153,8 +189,6 @@ const publishProductById = async (req, res) => {
       req.params.id,
       req.body.is_published
     );
-
-    console.log({ data });
 
     res.send({
       message: data?.is_published

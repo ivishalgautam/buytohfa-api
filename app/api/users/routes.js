@@ -1,8 +1,10 @@
 "use strict";
 
 import controller from "./controller.js";
+import jwtVerify from "../../helpers/auth.js";
 
 export default async function routes(fastify, options) {
+  fastify.addHook("onRequest", jwtVerify.verifyToken);
   fastify.post("/", {}, controller.create);
   fastify.post("/:id/change-password", {}, controller.updatePassword);
   fastify.put("/:id", {}, controller.update);

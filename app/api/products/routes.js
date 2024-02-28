@@ -3,7 +3,7 @@ import controller from "./controller.js";
 
 export default async function routes(fastify, options) {
   fastify.post("/", {}, controller.create);
-  fastify.get("/", {}, controller.get);
+  fastify.get("/admin/getAll", {}, controller.get);
   fastify.put("/:id", {}, controller.updateById);
   fastify.put("/publish/:id", {}, controller.publishProductById);
   fastify.delete("/:id", {}, controller.deleteById);
